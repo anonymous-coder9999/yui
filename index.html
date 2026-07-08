@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CircuitHouse — Electronics Store</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<!-- EmailJS: used to forward signup / order details to the shop owner's inbox from the browser -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/emailjs-com/3.2.0/email.min.js"></script>
+<style>
+  :root{
+    --bg:#0B0E13;
+    --surface:#131922;
+    --surface-2:#1A222E;
+    --line:#26313F;
+    --text:#E9EEF3;
+    --muted:#8B98A8;
+    --led:#00E5A0;
+    --led-dim:#0A3B2C;
+    --solder:#FF7A45;
+    --amber:#FFB020;
+    --danger:#FF5D5D;
+    --radius:10px;
+    --mono:'JetBrains Mono', monospace;
+    --disp:'Space Grotesk', sans-serif;
+    --body:'Inter', sans-serif;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--body);
+    min-height:100vh;
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size:42px 42px;
+    background-attachment:fixed;
+    background-position:center;
+    background-color:var(--bg);
+  }
+  body::before{
+    content:"";
+    position:fixed; inset:0;
+    background:radial-gradient(ellipse at top, rgba(0,229,160,0.07), transparent 55%);
+    pointer-events:none;
+    z-index:0;
+  }
+  a{color:inherit;}
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none !important; transition:none !important;}
+  }
+
+  /* ---------- Layout shells ---------- */
+  .view{display:none; position:relative; z-index:1;}
+  .view.active{display:block;}
+  .wrap{max-width:1180px; margin:0 auto; padding:0 24px;}
+
+  /* ---------- Trace divider signature ---------- */
+  .trace{
+    height:2px; width:100%;
+    background:linear-gradient(90deg, transparent, var(--led) 15%, var(--led) 85%, transparent);
+    position:relative;
+    opacity:.55;
+  }
+  .trace::before, .trace::after{
+    content:""; position:absolute; top:50%; width:6px; height:6px; border-radius:50%;
+    background:var(--led); transform:translateY(-50%);
+    box-shadow:0 0 8px var(--led);
+  }
+  .trace::before{left:15%;}
+  .trace::after{right:15%;}
+
+  /* ---------- Auth view ---------- */
+  .auth-shell{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:40px 20px;
+  }
+  .auth-card{
+    width:100%; max-width:460px;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:40px 36px 32px;
+    position:relative;
+    overflow:hidden;
+  }
+  .auth-card::before{
+    content:"";
+    position:absolute; top:0; left:0; right:0; height:3px;
+    background:linear-gradient(90deg, var(--led), var(--solder), var(--amber));
+  }
+  .chip-row{display:flex; gap:6px; margin-bottom:18px;}
+  .chip-pin{width:8px; height:8px; border-radius:50%; background:var(--line);}
+  .chip-pin.on{background:var(--led); box-shadow:0 0 6px var(--led);}
+  .brand-mark{
+    font-family:var(--disp); font-weight:700; font-size:22px; letter-spacing:.5px;
+    display:flex; align-items:center; gap:10px; margin-bottom:6px;
+  }
+  .brand-mark .dot{width:9px; height:9px; border-radius:50%; background:var(--led); box-shadow:0 0 10px var(--led);}
+  .auth-sub{color:var(--muted); font-size:13.5px; margin-bottom:26px; font-family:var(--mono);}
+  .tabbar{display:flex; background:var(--surface-2); border:1px solid var(--line); border-radius:8px; padding:4px; margin-bottom:24px;}
+  .tabbar button{
+    flex:1; padding:9px 0; background:transparent; border:none; color:var(--muted);
+    font-family:var(--disp); font-weight:600; font-size:13.5px; border-radius:6px; cursor:pointer;
+    letter-spacing:.3px;
+  }
+  .tabbar button.active{background:var(--bg); color:var(--led); box-shadow:inset 0 0 0 1px var(--led-dim);}
+  .form-group{margin-bottom:16px;}
+  .form-group label{
+    display:block; font-size:11.5px; text-transform:uppercase; letter-spacing:1px;
+    color:var(--muted); margin-bottom:7px; font-family:var(--mono);
+  }
+  .form-group input{
+    width:100%; background:var(--bg); border:1px solid var(--line); color:var(--text);
+    padding:11px 13px; border-radius:7px; font-size:14.5px; font-family:var(--body);
+    outline:none; transition:border-color .15s;
+  }
+  .form-group input:focus{border-color:var(--led); box-shadow:0 0 0 3px rgba(0,229,160,.12);}
+  .btn{
+    width:100%; padding:12px 0; border-radius:7px; border:none; cursor:pointer;
+    font-family:var(--disp); font-weight:600; font-size:14.5px; letter-spacing:.3px;
+    transition:transform .1s, filter .15s;
+  }
+  .btn:active{transform:scale(.98);}
+  .btn-primary{background:var(--led); color:#04120C;}
+  .btn-primary:hover{filter:brightness(1.08);}
+  .btn-ghost{background:transparent; border:1px solid var(--line); color:var(--text);}
+  .btn-ghost:hover{border-color:var(--led);}
+  .form-note{font-size:12px; color:var(--muted); margin-top:14px; text-align:center; font-family:var(--mono);}
+  .form-error{
+    background:rgba(255,93,93,.1); border:1px solid rgba(255,93,93,.35); color:var(--danger);
+    padding:9px 12px; border-radius:6px; font-size:12.5px; margin-bottom:14px; display:none;
+  }
+  .form-error.show{display:block;}
+  .no-verify-badge{
+    display:inline-flex; align-items:center; gap:6px; font-family:var(--mono); font-size:11px;
+    color:var(--led); background:var(--led-dim); border:1px solid rgba(0,229,160,.3);
+    padding:4px 9px; border-radius:20px; margin-top:18px;
+  }
+
+  /* ---------- Shop header ---------- */
+  header.shop-header{
+    position:sticky; top:0; z-index:20;
+    background:rgba(11,14,19,.92); backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);
+  }
+  .header-inner{display:flex; align-items:center; justify-content:space-between; padding:16px 24px; gap:16px;}
+  .logo{display:flex; align-items:center; gap:9px; font-family:var(--disp); font-weight:700; font-size:19px;}
+  .logo .dot{width:8px; height:8px; border-radius:50%; background:var(--led); box-shadow:0 0 8px var(--led);}
+  .header-actions{display:flex; align-items:center; gap:14px;}
+  .support-pill{
+    display:flex; align-items:center; gap:8px; font-family:var(--mono); font-size:12.5px;
+    color:var(--muted); border:1px solid var(--line); padding:7px 12px; border-radius:20px;
+    text-decoration:none;
+  }
+  .support-pill:hover{border-color:var(--solder); color:var(--solder);}
+  .support-pill b{color:var(--text); font-weight:600;}
+  .user-pill{font-family:var(--mono); font-size:12.5px; color:var(--muted);}
+  .cart-btn{
+    position:relative; background:var(--surface-2); border:1px solid var(--line); color:var(--text);
+    padding:9px 14px; border-radius:8px; cursor:pointer; font-family:var(--disp); font-weight:600; font-size:13.5px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .cart-btn:hover{border-color:var(--led);}
+  .cart-count{
+    background:var(--solder); color:#1a0900; font-size:11px; font-weight:700; padding:1px 6px;
+    border-radius:10px; font-family:var(--mono);
+  }
+  .logout-link{font-size:12px; color:var(--muted); cursor:pointer; text-decoration:underline; text-underline-offset:3px;}
+  .logout-link:hover{color:var(--danger);}
+
+  /* ---------- Shop hero ---------- */
+  .shop-hero{padding:52px 0 30px;}
+  .eyebrow{font-family:var(--mono); font-size:12px; color:var(--led); letter-spacing:2px; text-transform:uppercase; margin-bottom:12px;}
+  .shop-hero h1{font-family:var(--disp); font-size:clamp(30px,4.5vw,46px); font-weight:700; line-height:1.1; max-width:720px;}
+  .shop-hero p{color:var(--muted); margin-top:14px; max-width:520px; font-size:15px; line-height:1.6;}
+
+  /* ---------- Filters ---------- */
+  .filter-row{display:flex; gap:8px; flex-wrap:wrap; padding:8px 0 28px;}
+  .filter-chip{
+    background:var(--surface); border:1px solid var(--line); color:var(--muted);
+    padding:8px 15px; border-radius:20px; font-family:var(--mono); font-size:12.5px; cursor:pointer;
+  }
+  .filter-chip.active{background:var(--led-dim); border-color:var(--led); color:var(--led);}
+
+  /* ---------- Product grid ---------- */
+  .grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(240px,1fr)); gap:18px; padding-bottom:60px;}
+  .card{
+    background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+    padding:0; overflow:hidden; display:flex; flex-direction:column;
+    transition:border-color .15s, transform .15s;
+  }
+  .card:hover{border-color:var(--led); transform:translateY(-3px);}
+  .card-media{
+    height:150px; display:flex; align-items:center; justify-content:center;
+    background:
+      radial-gradient(circle at 30% 20%, rgba(0,229,160,.10), transparent 60%),
+      var(--surface-2);
+    border-bottom:1px solid var(--line); position:relative;
+  }
+  .card-media svg{width:52px; height:52px; stroke:var(--led); fill:none; stroke-width:1.4;}
+  .stock-tag{
+    position:absolute; top:10px; right:10px; font-family:var(--mono); font-size:10px;
+    padding:3px 8px; border-radius:10px; background:var(--led-dim); color:var(--led);
+    border:1px solid rgba(0,229,160,.3);
+  }
+  .card-body{padding:16px 16px 18px; display:flex; flex-direction:column; gap:8px; flex:1;}
+  .card-cat{font-family:var(--mono); font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:1px;}
+  .card-title{font-family:var(--disp); font-weight:600; font-size:15.5px; line-height:1.3;}
+  .card-desc{font-size:12.5px; color:var(--muted); line-height:1.5; flex:1;}
+  .card-foot{display:flex; align-items:center; justify-content:space-between; margin-top:6px;}
+  .price{font-family:var(--mono); font-weight:700; font-size:16.5px; color:var(--text);}
+  .price small{color:var(--muted); font-size:11px; font-weight:400;}
+  .add-btn{
+    background:transparent; border:1px solid var(--led); color:var(--led); padding:7px 13px;
+    border-radius:6px; font-family:var(--disp); font-weight:600; font-size:12.5px; cursor:pointer;
+  }
+  .add-btn:hover{background:var(--led); color:#04120C;}
+  .add-btn.added{background:var(--led); color:#04120C;}
+
+  /* ---------- Cart drawer ---------- */
+  .overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:29; opacity:0; pointer-events:none;
+    transition:opacity .2s;
+  }
+  .overlay.show{opacity:1; pointer-events:auto;}
+  .drawer{
+    position:fixed; top:0; right:0; height:100vh; width:min(420px, 92vw);
+    background:var(--surface); border-left:1px solid var(--line); z-index:30;
+    transform:translateX(100%); transition:transform .25s ease;
+    display:flex; flex-direction:column;
+  }
+  .drawer.open{transform:translateX(0);}
+  .drawer-head{padding:20px 22px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center;}
+  .drawer-head h3{font-family:var(--disp); font-size:17px;}
+  .close-x{background:none; border:none; color:var(--muted); font-size:20px; cursor:pointer;}
+  .drawer-items{flex:1; overflow-y:auto; padding:14px 22px;}
+  .cart-row{display:flex; gap:12px; padding:14px 0; border-bottom:1px solid var(--line);}
+  .cart-row .ci-media{width:48px; height:48px; border-radius:6px; background:var(--surface-2); display:flex; align-items:center; justify-content:center; flex-shrink:0;}
+  .cart-row .ci-media svg{width:24px; height:24px; stroke:var(--led); fill:none; stroke-width:1.5;}
+  .ci-info{flex:1;}
+  .ci-name{font-size:13.5px; font-weight:600;}
+  .ci-price{font-family:var(--mono); font-size:12px; color:var(--muted); margin-top:3px;}
+  .qty-ctrl{display:flex; align-items:center; gap:8px; margin-top:8px;}
+  .qty-ctrl button{
+    width:22px; height:22px; border-radius:5px; border:1px solid var(--line); background:var(--bg);
+    color:var(--text); cursor:pointer; font-size:13px; line-height:1;
+  }
+  .qty-ctrl span{font-family:var(--mono); font-size:12.5px; min-width:16px; text-align:center;}
+  .remove-x{background:none; border:none; color:var(--muted); cursor:pointer; font-size:16px;}
+  .remove-x:hover{color:var(--danger);}
+  .empty-cart{color:var(--muted); font-size:13.5px; text-align:center; padding:60px 10px; font-family:var(--mono);}
+  .drawer-foot{padding:20px 22px; border-top:1px solid var(--line);}
+  .total-row{display:flex; justify-content:space-between; font-family:var(--mono); font-size:15px; margin-bottom:14px;}
+  .total-row b{font-size:18px;}
+
+  /* ---------- Checkout form ---------- */
+  .checkout-panel{padding:16px 0 4px; display:none; flex-direction:column; gap:12px;}
+  .checkout-panel.show{display:flex;}
+  .checkout-panel input, .checkout-panel textarea{
+    width:100%; background:var(--bg); border:1px solid var(--line); color:var(--text);
+    padding:9px 11px; border-radius:6px; font-size:13px; font-family:var(--body); outline:none;
+  }
+  .checkout-panel textarea{resize:vertical; min-height:56px;}
+
+  /* ---------- Toast ---------- */
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--surface); border:1px solid var(--led); color:var(--text);
+    padding:13px 20px; border-radius:8px; font-size:13.5px; font-family:var(--mono);
+    z-index:60; opacity:0; pointer-events:none; transition:all .25s; max-width:90vw; text-align:center;
+    box-shadow:0 8px 24px rgba(0,0,0,.4);
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+  /* ---------- Footer ---------- */
+  footer{border-top:1px solid var(--line); padding:34px 0; margin-top:20px; position:relative; z-index:1;}
+  .footer-inner{display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:14px;}
+  .footer-brand{font-family:var(--mono); font-size:12px; color:var(--muted);}
+  .footer-credit{font-family:var(--mono); font-size:12px; color:var(--muted);}
+  .footer-credit b{color:var(--led); font-weight:600;}
+  .footer-support{font-family:var(--mono); font-size:12px; color:var(--muted);}
+  .footer-support a{color:var(--solder); text-decoration:none;}
+
+  @media (max-width:640px){
+    .header-inner{flex-wrap:wrap;}
+    .support-pill{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ======================= AUTH VIEW ======================= -->
+<section id="view-auth" class="view active">
+  <div class="auth-shell">
+    <div class="auth-card">
+      <div class="chip-row">
+        <div class="chip-pin on"></div><div class="chip-pin"></div><div class="chip-pin on"></div>
+        <div class="chip-pin"></div><div class="chip-pin on"></div>
+      </div>
+      <div class="brand-mark"><span class="dot"></span>CircuitHouse</div>
+      <div class="auth-sub">// electronics, sourced and shipped right</div>
+
+      <div class="tabbar">
+        <button id="tab-signin" class="active" onclick="switchTab('signin')">Sign In</button>
+        <button id="tab-signup" onclick="switchTab('signup')">Sign Up</button>
+      </div>
+
+      <div id="auth-error" class="form-error"></div>
+
+      <!-- Sign In -->
+      <form id="form-signin" onsubmit="handleSignin(event)">
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="si-email" required placeholder="you@example.com">
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="si-password" required placeholder="••••••••">
+        </div>
+        <button type="submit" class="btn btn-primary">Sign In</button>
+      </form>
+
+      <!-- Sign Up -->
+      <form id="form-signup" onsubmit="handleSignup(event)" style="display:none;">
+        <div class="form-group">
+          <label>Full name</label>
+          <input type="text" id="su-name" required placeholder="Your name">
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="su-email" required placeholder="you@example.com">
+        </div>
+        <div class="form-group">
+          <label>Phone (optional)</label>
+          <input type="tel" id="su-phone" placeholder="10-digit number">
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="su-password" required placeholder="Create a password">
+        </div>
+        <button type="submit" class="btn btn-primary">Create account</button>
+      </form>
+
+      <div style="text-align:center;">
+        <span class="no-verify-badge">⚡ No email/OTP verification — instant access</span>
+      </div>
+      <div class="form-note">Support: <b style="color:var(--text)">9394389413</b></div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= SHOP VIEW ======================= -->
+<section id="view-shop" class="view">
+  <header class="shop-header">
+    <div class="wrap header-inner">
+      <div class="logo"><span class="dot"></span>CircuitHouse</div>
+      <div class="header-actions">
+        <a class="support-pill" href="tel:9394389413">☎ Support <b>9394389413</b></a>
+        <span class="user-pill" id="user-pill"></span>
+        <button class="cart-btn" onclick="openCart()">
+          🛒 Cart <span class="cart-count" id="cart-count">0</span>
+        </button>
+        <span class="logout-link" onclick="handleLogout()">Log out</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="trace"></div>
+
+  <div class="wrap shop-hero">
+    <div class="eyebrow">// Full catalog · in stock</div>
+    <h1>Every component, cable, and gadget you actually need.</h1>
+    <p>Browse the shop, add what you need to the cart, and check out — order details are sent straight to our team so we can get it packed and shipped.</p>
+  </div>
+
+  <div class="wrap">
+    <div class="filter-row" id="filter-row"></div>
+    <div class="grid" id="product-grid"></div>
+  </div>
+
+  <div class="trace"></div>
+
+  <footer>
+    <div class="wrap footer-inner">
+      <div class="footer-brand">CircuitHouse Electronics</div>
+      <div class="footer-support">Need help? Call/WhatsApp <a href="tel:9394389413">9394389413</a></div>
+      <div class="footer-credit">Made by <b>Yashvir Paul</b></div>
+    </div>
+  </footer>
+</section>
+
+<!-- ======================= CART DRAWER ======================= -->
+<div class="overlay" id="overlay" onclick="closeCart()"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <h3>Your Cart</h3>
+    <button class="close-x" onclick="closeCart()">✕</button>
+  </div>
+  <div class="drawer-items" id="cart-items"></div>
+  <div class="drawer-foot">
+    <div class="total-row"><span>Total</span><b id="cart-total">₹0</b></div>
+
+    <div id="checkout-panel" class="checkout-panel">
+      <input type="text" id="co-name" placeholder="Delivery name">
+      <input type="tel" id="co-phone" placeholder="Contact number">
+      <textarea id="co-address" placeholder="Delivery address"></textarea>
+      <button class="btn btn-primary" onclick="placeOrder()">Confirm Order</button>
+    </div>
+
+    <button class="btn btn-primary" id="checkout-btn" onclick="showCheckoutForm()">Checkout</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================================
+   EMAIL DELIVERY SETUP (read this before going live)
+   -------------------------------------------------------------------------
+   A static website cannot send emails by itself — there is no server here.
+   This file is wired to use EmailJS (https://www.emailjs.com), a free
+   service that lets client-side JS send email through your own account.
+
+   To make signup + order emails actually land in yveer8609@gmail.com:
+   1. Create a free account at https://www.emailjs.com
+   2. Add an Email Service (e.g. connect yveer8609@gmail.com)
+   3. Create an Email Template with variables: {{event_type}}, {{name}},
+      {{email}}, {{phone}}, {{details}}
+   4. Copy your Public Key, Service ID, and Template ID into the three
+      constants below (EMAILJS_PUBLIC_KEY, EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID)
+   Until you do that, the site still works fully (signup, login, cart,
+   checkout) — it just can't push the notification email yet, and will
+   quietly log the attempt to the browser console instead.
+   ========================================================================= */
+const EMAILJS_PUBLIC_KEY  = "YOUR_PUBLIC_KEY";
+const EMAILJS_SERVICE_ID  = "YOUR_SERVICE_ID";
+const EMAILJS_TEMPLATE_ID = "YOUR_TEMPLATE_ID";
+const NOTIFY_EMAIL = "yveer8609@gmail.com";
+
+let emailReady = false;
+try{
+  if(EMAILJS_PUBLIC_KEY !== "YOUR_PUBLIC_KEY"){
+    emailjs.init(EMAILJS_PUBLIC_KEY);
+    emailReady = true;
+  }
+}catch(e){ console.warn("EmailJS not initialised", e); }
+
+function notifyOwner(eventType, payload){
+  const record = { event_type: eventType, to_email: NOTIFY_EMAIL, timestamp: new Date().toLocaleString(), ...payload };
+  if(emailReady){
+    emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, record)
+      .then(()=>console.log("Notification sent to", NOTIFY_EMAIL, record))
+      .catch(err=>console.error("EmailJS send failed:", err));
+  }else{
+    console.log("[EMAIL NOT CONFIGURED] Would notify", NOTIFY_EMAIL, "→", record);
+  }
+}
+
+/* ---------------------- Fake persistence (localStorage) ---------------------- */
+const DB = {
+  users: JSON.parse(localStorage.getItem('ch_users') || '{}'),
+  save(){ localStorage.setItem('ch_users', JSON.stringify(this.users)); }
+};
+let currentUser = JSON.parse(localStorage.getItem('ch_session') || 'null');
+let cart = JSON.parse(localStorage.getItem('ch_cart') || '[]');
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(()=>t.classList.remove('show'), 2600);
+}
+
+/* ---------------------- Auth ---------------------- */
+function switchTab(which){
+  document.getElementById('tab-signin').classList.toggle('active', which==='signin');
+  document.getElementById('tab-signup').classList.toggle('active', which==='signup');
+  document.getElementById('form-signin').style.display = which==='signin' ? 'block':'none';
+  document.getElementById('form-signup').style.display = which==='signup' ? 'block':'none';
+  document.getElementById('auth-error').classList.remove('show');
+}
+
+function showAuthError(msg){
+  const el = document.getElementById('auth-error');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+function handleSignup(e){
+  e.preventDefault();
+  const name = document.getElementById('su-name').value.trim();
+  const email = document.getElementById('su-email').value.trim().toLowerCase();
+  const phone = document.getElementById('su-phone').value.trim();
+  const password = document.getElementById('su-password').value;
+
+  if(DB.users[email]){
+    showAuthError('An account with this email already exists — try signing in instead.');
+    return;
+  }
+  DB.users[email] = { name, email, phone, password };
+  DB.save();
+
+  notifyOwner('New signup', { name, email, phone: phone || '—', details: 'No verification required — account created instantly.' });
+
+  loginAs(email);
+  showToast('Account created — you\'re in!');
+}
+
+function handleSignin(e){
+  e.preventDefault();
+  const email = document.getElementById('si-email').value.trim().toLowerCase();
+  const password = document.getElementById('si-password').value;
+  const user = DB.users[email];
+
+  if(!user || user.password !== password){
+    showAuthError('Email or password doesn\'t match our records.');
+    return;
+  }
+  notifyOwner('User login', { name: user.name, email: user.email, phone: user.phone || '—', details: 'Returning user signed in.' });
+  loginAs(email);
+  showToast('Welcome back, ' + user.name.split(' ')[0] + '!');
+}
+
+function loginAs(email){
+  currentUser = DB.users[email];
+  localStorage.setItem('ch_session', JSON.stringify(currentUser));
+  goToShop();
+}
+
+function handleLogout(){
+  currentUser = null;
+  localStorage.removeItem('ch_session');
+  document.getElementById('view-shop').classList.remove('active');
+  document.getElementById('view-auth').classList.add('active');
+  document.getElementById('form-signin').reset();
+}
+
+function goToShop(){
+  document.getElementById('view-auth').classList.remove('active');
+  document.getElementById('view-shop').classList.add('active');
+  document.getElementById('user-pill').textContent = currentUser ? ('Hi, ' + currentUser.name.split(' ')[0]) : '';
+  renderProducts();
+  renderCart();
+}
+
+/* ---------------------- Product catalog ---------------------- */
+const ICONS = {
+  headphones: `<path d="M4 13v-1a8 8 0 0116 0v1"/><rect x="2" y="13" width="5" height="7" rx="2"/><rect x="17" y="13" width="5" height="7" rx="2"/>`,
+  phone: `<rect x="7" y="2" width="10" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/>`,
+  laptop: `<rect x="3" y="4" width="18" height="12" rx="1"/><path d="M2 20h20l-2-4H4l-2 4z"/>`,
+  watch: `<circle cx="12" cy="12" r="6"/><path d="M9 2h6M9 22h6M12 9v3l2 2"/>`,
+  speaker: `<rect x="6" y="2" width="12" height="20" rx="2"/><circle cx="12" cy="8" r="2"/><circle cx="12" cy="15" r="3"/>`,
+  camera: `<rect x="2" y="7" width="20" height="14" rx="2"/><circle cx="12" cy="14" r="4"/><path d="M9 7l1.5-3h3L15 7"/>`,
+  keyboard: `<rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="10" x2="6" y2="10.5"/><line x1="10" y1="10" x2="10" y2="10.5"/><line x1="14" y1="10" x2="14" y2="10.5"/><line x1="18" y1="10" x2="18" y2="10.5"/><line x1="6" y1="14" x2="16" y2="14"/>`,
+  mouse: `<rect x="7" y="2" width="10" height="20" rx="5"/><line x1="12" y1="2" x2="12" y2="10"/>`,
+  drone: `<circle cx="12" cy="12" r="3"/><circle cx="4" cy="4" r="2"/><circle cx="20" cy="4" r="2"/><circle cx="4" cy="20" r="2"/><circle cx="20" cy="20" r="2"/><line x1="9" y1="10" x2="5" y2="6"/><line x1="15" y1="10" x2="19" y2="6"/><line x1="9" y1="14" x2="5" y2="18"/><line x1="15" y1="14" x2="19" y2="18"/>`,
+  charger: `<path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/>`,
+  tv: `<rect x="2" y="4" width="20" height="13" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>`,
+  router: `<rect x="3" y="9" width="18" height="8" rx="2"/><line x1="7" y1="9" x2="7" y2="4"/><line x1="12" y1="9" x2="12" y2="3"/><line x1="17" y1="9" x2="17" y2="5"/><circle cx="7" cy="13" r="1"/><circle cx="11" cy="13" r="1"/>`,
+  console: `<rect x="2" y="8" width="20" height="10" rx="4"/><circle cx="7" cy="13" r="1.4"/><circle cx="17" cy="11.5" r="1"/><circle cx="19" cy="13.5" r="1"/>`
+};
+
+const PRODUCTS = [
+  { id:'p1', name:'AeroBass Wireless Headphones', cat:'Audio', icon:'headphones', price:2499, desc:'Over-ear ANC headphones, 40h battery, deep bass tuning.' },
+  { id:'p2', name:'Nova X12 Smartphone', cat:'Mobiles', icon:'phone', price:18999, desc:'6.5" AMOLED, 5000mAh, 108MP triple camera.' },
+  { id:'p3', name:'ProBook Slim 14 Laptop', cat:'Computers', icon:'laptop', price:47999, desc:'14" FHD, Ryzen 5, 16GB RAM, 512GB SSD.' },
+  { id:'p4', name:'PulseFit Smartwatch', cat:'Wearables', icon:'watch', price:3299, desc:'AMOLED display, SpO2, 7-day battery, GPS.' },
+  { id:'p5', name:'BoomCube Bluetooth Speaker', cat:'Audio', icon:'speaker', price:1799, desc:'360° sound, IPX7 waterproof, 12h playback.' },
+  { id:'p6', name:'ClearShot 4K Action Camera', cat:'Cameras', icon:'camera', price:6499, desc:'4K/60fps, waterproof case, image stabilization.' },
+  { id:'p7', name:'MechType RGB Keyboard', cat:'Accessories', icon:'keyboard', price:2199, desc:'Hot-swappable switches, per-key RGB, aluminium frame.' },
+  { id:'p8', name:'GlideX Wireless Mouse', cat:'Accessories', icon:'mouse', price:899, desc:'2.4GHz + Bluetooth, 4000 DPI, silent clicks.' },
+  { id:'p9', name:'SkyView Mini Drone', cat:'Gadgets', icon:'drone', price:8999, desc:'2.7K camera, 25min flight time, GPS return-home.' },
+  { id:'p10', name:'FastVolt 65W GaN Charger', cat:'Accessories', icon:'charger', price:1299, desc:'3-port GaN fast charger for laptop, phone, tablet.' },
+  { id:'p11', name:'VividPlay 43" Smart TV', cat:'Home', icon:'tv', price:24999, desc:'4K UHD, HDR10, built-in streaming apps.' },
+  { id:'p12', name:'NetCore AX Wi-Fi Router', cat:'Networking', icon:'router', price:2799, desc:'Wi-Fi 6, dual-band, mesh-ready, 4 antennas.' },
+  { id:'p13', name:'PixelPlay Handheld Console', cat:'Gaming', icon:'console', price:14999, desc:'7" screen, 128GB storage, 6h battery gaming.' },
+];
+
+const CATS = ['All', ...new Set(PRODUCTS.map(p=>p.cat))];
+let activeCat = 'All';
+
+function renderFilters(){
+  const row = document.getElementById('filter-row');
+  row.innerHTML = CATS.map(c=>`<button class="filter-chip ${c===activeCat?'active':''}" onclick="setFilter('${c}')">${c}</button>`).join('');
+}
+function setFilter(c){ activeCat = c; renderFilters(); renderProducts(); }
+
+function renderProducts(){
+  renderFilters();
+  const grid = document.getElementById('product-grid');
+  const list = activeCat==='All' ? PRODUCTS : PRODUCTS.filter(p=>p.cat===activeCat);
+  grid.innerHTML = list.map(p=>`
+    <div class="card">
+      <div class="card-media">
+        <span class="stock-tag">In stock</span>
+        <svg viewBox="0 0 24 24">${ICONS[p.icon]}</svg>
+      </div>
+      <div class="card-body">
+        <div class="card-cat">${p.cat}</div>
+        <div class="card-title">${p.name}</div>
+        <div class="card-desc">${p.desc}</div>
+        <div class="card-foot">
+          <div class="price">₹${p.price.toLocaleString('en-IN')}</div>
+          <button class="add-btn" id="add-${p.id}" onclick="addToCart('${p.id}')">+ Add</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+/* ---------------------- Cart ---------------------- */
+function saveCart(){ localStorage.setItem('ch_cart', JSON.stringify(cart)); }
+
+function addToCart(id){
+  const p = PRODUCTS.find(x=>x.id===id);
+  const existing = cart.find(x=>x.id===id);
+  if(existing){ existing.qty++; } else { cart.push({ id:p.id, name:p.name, price:p.price, icon:p.icon, qty:1 }); }
+  saveCart();
+  renderCart();
+  const btn = document.getElementById('add-'+id);
+  btn.textContent = '✓ Added';
+  btn.classList.add('added');
+  setTimeout(()=>{ btn.textContent='+ Add'; btn.classList.remove('added'); }, 900);
+  showToast(p.name + ' added to cart');
+}
+
+function changeQty(id, delta){
+  const item = cart.find(x=>x.id===id);
+  if(!item) return;
+  item.qty += delta;
+  if(item.qty <= 0) cart = cart.filter(x=>x.id!==id);
+  saveCart();
+  renderCart();
+}
+
+function removeItem(id){
+  cart = cart.filter(x=>x.id!==id);
+  saveCart();
+  renderCart();
+}
+
+function cartTotal(){ return cart.reduce((s,i)=>s+i.price*i.qty,0); }
+
+function renderCart(){
+  const wrap = document.getElementById('cart-items');
+  document.getElementById('cart-count').textContent = cart.reduce((s,i)=>s+i.qty,0);
+  document.getElementById('cart-total').textContent = '₹' + cartTotal().toLocaleString('en-IN');
+
+  if(cart.length===0){
+    wrap.innerHTML = '<div class="empty-cart">Your cart is empty.<br>Add some components to get started.</div>';
+    document.getElementById('checkout-btn').style.display='block';
+    document.getElementById('checkout-panel').classList.remove('show');
+    return;
+  }
+  wrap.innerHTML = cart.map(i=>`
+    <div class="cart-row">
+      <div class="ci-media"><svg viewBox="0 0 24 24">${ICONS[i.icon]}</svg></div>
+      <div class="ci-info">
+        <div class="ci-name">${i.name}</div>
+        <div class="ci-price">₹${i.price.toLocaleString('en-IN')} each</div>
+        <div class="qty-ctrl">
+          <button onclick="changeQty('${i.id}',-1)">−</button>
+          <span>${i.qty}</span>
+          <button onclick="changeQty('${i.id}',1)">+</button>
+        </div>
+      </div>
+      <button class="remove-x" onclick="removeItem('${i.id}')">✕</button>
+    </div>
+  `).join('');
+}
+
+function openCart(){
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('overlay').classList.add('show');
+}
+function closeCart(){
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('overlay').classList.remove('show');
+}
+
+function showCheckoutForm(){
+  if(cart.length===0){ showToast('Your cart is empty'); return; }
+  document.getElementById('checkout-panel').classList.add('show');
+  document.getElementById('checkout-btn').style.display='none';
+  if(currentUser){
+    document.getElementById('co-name').value = currentUser.name;
+    document.getElementById('co-phone').value = currentUser.phone || '';
+  }
+}
+
+function placeOrder(){
+  const name = document.getElementById('co-name').value.trim();
+  const phone = document.getElementById('co-phone').value.trim();
+  const address = document.getElementById('co-address').value.trim();
+  if(!name || !phone || !address){ showToast('Please fill in name, phone and address'); return; }
+
+  const itemsSummary = cart.map(i=>`${i.name} x${i.qty} (₹${(i.price*i.qty).toLocaleString('en-IN')})`).join('; ');
+  const orderDetails = `Items: ${itemsSummary} | Total: ₹${cartTotal().toLocaleString('en-IN')} | Delivery address: ${address}`;
+
+  notifyOwner('New order', {
+    name, email: currentUser ? currentUser.email : '—', phone, details: orderDetails
+  });
+
+  cart = [];
+  saveCart();
+  renderCart();
+  closeCart();
+  document.getElementById('checkout-panel').classList.remove('show');
+  document.getElementById('checkout-btn').style.display='block';
+  document.getElementById('co-address').value='';
+  showToast('Order placed! We\'ll call you on ' + phone + ' to confirm.');
+}
+
+/* ---------------------- Boot ---------------------- */
+if(currentUser){ goToShop(); }
+</script>
+</body>
+</html>
